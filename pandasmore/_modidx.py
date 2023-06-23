@@ -5,4 +5,5 @@ d = { 'settings': { 'branch': 'main',
                 'doc_host': 'https://ionmihai.github.io',
                 'git_url': 'https://github.com/ionmihai/pandasmore',
                 'lib_path': 'pandasmore'},
-  'syms': {'pandasmore.core': {'pandasmore.core.foo': ('core.html#foo', 'pandasmore/core.py')}}}
+  'syms': { 'pandasmore.core': { 'pandasmore.core.fast_lag': ('core.html#fast_lag', 'pandasmore/core.py'),
+                                 'pandasmore.core.lag': ('core.html#lag', 'pandasmore/core.py')}}}
