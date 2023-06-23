@@ -4,6 +4,6 @@ project:
 website:
   title: "pandasmore"
   site-url: "https://ionmihai.github.io/pandasmore"
-  description: "'Extends pandas with common functions used in finance and economics research'"
+  description: "Extends pandas with common functions used in finance and economics research"
   repo-branch: main
   repo-url: "https://github.com/ionmihai/pandasmore"
