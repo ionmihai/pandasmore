@@ -2,18 +2,19 @@
 
 # %% ../nbs/00_core.ipynb 3
 from __future__ import annotations
+from typing import List 
 import pandas as pd
 import numpy as np
 
 # %% auto 0
-__all__ = ['fast_lag', 'lag']
+__all__ = ['fast_lag', 'lag', 'add_lags', 'rpct_change', 'rdiff']
 
 # %% ../nbs/00_core.ipynb 9
 def fast_lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be period date
         n: int=1, # Number of periods to lag based on frequency of df.index; Negative values means lead.
         ) -> pd.Series: # Series with lagged values; Name is taken from `df`, with _lag{n} or _lead{n} added
     """Lag data in 'df' by 'n' periods. 
-    ASSUMES DATA SORTED BY DATES AND NO DUPLICATE OR MISSING DATES."""
+    ASSUMES DATA IS SORTED BY DATES AND HAS NO DUPLICATE OR MISSING DATES."""
 
     if isinstance(df,pd.Series): df = df.to_frame()
     if len(df.columns) > 1: raise ValueError("<df> must have a single column")
@@ -48,7 +49,7 @@ def lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be p
         n: int=1, # Number of periods to lag based on frequency of df.index; Negative values means lead.
         fast: bool=True, # Assumes data is sorted by date and no duplicate or missing dates
         ) -> pd.Series: # Series with lagged values; Name is taken from `df`, with _lag{n} or _lead{n} added
-    """Lag data in 'df' by 'n' periods."""
+    """Lag data in 'df' by 'n' periods. ASSUMES NO MISSING DATES"""
 
     if fast: return fast_lag(df,n)
 
@@ -70,3 +71,34 @@ def lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be p
 
     dfl = df.join(dfl).drop(columns=df.columns)
     return dfl.squeeze()
+
+# %% ../nbs/00_core.ipynb 14
+def add_lags(df: pd.Series|pd.DataFrame, # If series, it must have a name equal to 'vars' parameter
+             vars: str|List[str], # Variables to be lagged; must be a subset of df.columns()
+             lags: int|List[int]=1, # Which lags to be added
+             lag_suffix: str='_lag',
+             lead_suffix: str='_lead',
+             fast: bool=True, # Weather to use fast_lag function
+             ) -> pd.DataFrame:
+    """Returns a copy of 'df' with all 'lags' of all 'vars' added to it"""
+
+    df = df.copy()
+    if isinstance(df, pd.Series): df = df.to_frame()  
+    if isinstance(vars, str): vars = [vars]
+    if isinstance(lags, int): lags = [lags]
+
+    for var in vars:
+        for n in lags:
+            suffix = f'{lag_suffix}{n}' if n>=0 else f'{lead_suffix}{-n}'
+            df[f'{var}{suffix}'] = lag(df[var], n, fast)
+    return df
+
+# %% ../nbs/00_core.ipynb 22
+def rpct_change(df: pd.Series, n: int=1, fast=True):
+    """Percentage change using robust lag function"""
+    return df / lag(df, n, fast) - 1
+
+# %% ../nbs/00_core.ipynb 24
+def rdiff(df: pd.Series, n: int=1, fast=True):
+    """Difference using robust lag function"""
+    return df - lag(df, n, fast)

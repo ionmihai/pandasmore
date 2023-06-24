@@ -5,5 +5,8 @@ d = { 'settings': { 'branch': 'main',
                 'doc_host': 'https://ionmihai.github.io',
                 'git_url': 'https://github.com/ionmihai/pandasmore',
                 'lib_path': 'pandasmore'},
-  'syms': { 'pandasmore.core': { 'pandasmore.core.fast_lag': ('core.html#fast_lag', 'pandasmore/core.py'),
-                                 'pandasmore.core.lag': ('core.html#lag', 'pandasmore/core.py')}}}
+  'syms': { 'pandasmore.core': { 'pandasmore.core.add_lags': ('core.html#add_lags', 'pandasmore/core.py'),
+                                 'pandasmore.core.fast_lag': ('core.html#fast_lag', 'pandasmore/core.py'),
+                                 'pandasmore.core.lag': ('core.html#lag', 'pandasmore/core.py'),
+                                 'pandasmore.core.rdiff': ('core.html#rdiff', 'pandasmore/core.py'),
+                                 'pandasmore.core.rpct_change': ('core.html#rpct_change', 'pandasmore/core.py')}}}
