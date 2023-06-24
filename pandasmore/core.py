@@ -56,11 +56,12 @@ def setup_panel(df: pd.DataFrame, # Input DataFrame; a copy is returned
     return order_columns(df,[time_var,dtdate_var]) 
 
 # %% ../nbs/00_core.ipynb 16
-def fast_lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be period date
+def fast_lag(df: pd.Series|pd.DataFrame, # Index of `df` (or level 1 of MultiIndex) must be pandas period date.
         n: int=1, # Number of periods to lag based on frequency of df.index; Negative values means lead.
-        ) -> pd.Series: # Series with lagged values; Name is taken from `df`, with _lag{n} or _lead{n} added
-    """Lag data in 'df' by 'n' periods. 
-    ASSUMES DATA IS SORTED BY DATES AND HAS NO DUPLICATE OR MISSING DATES."""
+        ) -> pd.Series: # Series with lagged values of `df`; Name is taken from `df.columns[0]`, with '_lag{n}' or '_lead{n}' suffixed.
+    """Lag data in `df` by `n` periods. 
+    ASSUMES DATA IS SORTED BY DATES AND HAS NO DUPLICATE OR MISSING DATES.
+    Apply `df = setup_panel(df)` before using."""
 
     if isinstance(df,pd.Series): df = df.to_frame()
     if len(df.columns) > 1: raise ValueError("<df> must have a single column")
@@ -92,10 +93,10 @@ def fast_lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must
 
 # %% ../nbs/00_core.ipynb 17
 def lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be period date with no missing values.
-        n: int=1, # Number of periods to lag based on frequency of df.index; Negative values means lead.
-        fast: bool=True, # Assumes data is sorted by date and no duplicate or missing dates
-        ) -> pd.Series: # Series with lagged values; Name is taken from `df`, with _lag{n} or _lead{n} added
-    """Lag data in 'df' by 'n' periods. ASSUMES NO MISSING DATES"""
+        n: int=1, # Number of periods to lag based on frequency of `df.index`; Negative values means lead.
+        fast: bool=True, # If True, uses `fast_lag()`, which assumes data is sorted by date and has no duplicate or missing dates
+        ) -> pd.Series: # Series with lagged values of `df`; Name is taken from `df.columns[0]`, with '_lag{n}' or '_lead{n}' suffixed.
+    """Lag data in 'df' by 'n' periods. ASSUMES NO MISSING DATES. Apply `df = setup_panel(df)` before using."""
 
     if fast: return fast_lag(df,n)
 
@@ -119,14 +120,14 @@ def lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be p
     return dfl.squeeze()
 
 # %% ../nbs/00_core.ipynb 21
-def add_lags(df: pd.Series|pd.DataFrame, # If series, it must have a name equal to 'vars' parameter
-             vars: str|List[str], # Variables to be lagged; must be a subset of df.columns()
+def add_lags(df: pd.Series|pd.DataFrame, # If pd.Series, it must have a name equal to `vars` param
+             vars: str|List[str], # Variables to be lagged; must be a subset of `df.columns()`
              lags: int|List[int]=1, # Which lags to be added
-             lag_suffix: str='_lag',
-             lead_suffix: str='_lead',
-             fast: bool=True, # Weather to use fast_lag function
+             lag_suffix: str='_lag', # Used to create new lagged variable names
+             lead_suffix: str='_lead', # Used to create new lead variable names
+             fast: bool=True, # Weather to use `fast_lag()` function when lagging
              ) -> pd.DataFrame:
-    """Returns a copy of 'df' with all 'lags' of all 'vars' added to it"""
+    """Returns a copy of `df` with all `lags` of all `vars` added to it."""
 
     df = df.copy()
     if isinstance(df, pd.Series): df = df.to_frame()  
@@ -141,10 +142,10 @@ def add_lags(df: pd.Series|pd.DataFrame, # If series, it must have a name equal 
 
 # %% ../nbs/00_core.ipynb 28
 def rpct_change(df: pd.Series, n: int=1, fast=True):
-    """Percentage change using robust lag function"""
+    """Percentage change using robust `lag()` or `fast_lag()` function."""
     return df / lag(df, n, fast) - 1
 
 # %% ../nbs/00_core.ipynb 30
 def rdiff(df: pd.Series, n: int=1, fast=True):
-    """Difference using robust lag function"""
+    """Difference using robust `lag()` or `fast_lag()` function."""
     return df - lag(df, n, fast)
