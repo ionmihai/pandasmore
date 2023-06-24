@@ -11,50 +11,51 @@ __all__ = ['order_columns', 'process_dates', 'setup_panel', 'fast_lag', 'lag', '
 
 # %% ../nbs/00_core.ipynb 8
 def order_columns(df: pd.DataFrame, these_first: List[str]) -> pd.DataFrame:
-    """Returns df with reordered columns. Use as df = order_columns(df,_)"""
+    """Returns `df` with reordered columns. Use as `df = order_columns(df,_)`"""
     remaining = [x for x in df.columns if x not in these_first]
     return df[these_first + remaining]
 
 # %% ../nbs/00_core.ipynb 10
-def process_dates(df: pd.DataFrame,
-                time_var: str='date', 
-                time_var_format: str='%Y-%m-%d',
-                freq: str=None, 
-                dtdate_var: str='dtdate'
+def process_dates(df: pd.DataFrame, # Function returns copy of this df with `dtdate_var` and `f'{freq}date'` cols added
+                time_var: str='date', # This will be the date variable used to generate datetime var `dtdate_var`
+                time_var_format: str='%Y-%m-%d', # Format of `time_var`; must be valid pandas `strftime`
+                dtdate_var: str='dtdate', # Name of datetime var to be created from `time_var`
+                freq: str=None, # Used to create `f'{freq}date'` period date; must be valid pandas offset string
                 ) -> pd.DataFrame:
-    """Makes datetime date `dtdate_var` from 'time_var'; adds period date with given 'freq"""
+    """Makes datetime date `dtdate_var` from `time_var`; adds period date `f'{freq}date'`."""
+    
     df = df.copy()
     df[dtdate_var] = pd.to_datetime(df[time_var], format=time_var_format)
     df[f'{freq}date'] = df['dtdate'].dt.to_period(freq)
-    return df
+    return order_columns(df, [time_var,dtdate_var,f'{freq}date'])
 
 # %% ../nbs/00_core.ipynb 12
-def setup_panel(df: pd.DataFrame, 
-                entity_var :str=None, 
-                time_var: str='date', 
-                time_var_format: str='%Y-%m-%d',
-                freq: str=None, 
-                dtdate_var: str='dtdate', 
-                entity_var_toint: bool=True, 
-                drop_index_duplicates: bool=True,
-                duplicates_which_keep: str='last', 
-                drop_index_missing: bool=True, 
+def setup_panel(df: pd.DataFrame, # Input DataFrame; a copy is returned
+                panel_ids :str=None, # Name of variable that identifies panel entities
+# Params passed to `process_dates`
+                time_var: str='date', # This will be the date variable used to generate datetime var `dtdate_var`
+                time_var_format: str='%Y-%m-%d', # Format of `time_var`; must be valid pandas `strftime`
+                dtdate_var: str='dtdate', # Name of datetime var to be created from `time_var`
+                freq: str=None, # Used to create `f'{freq}date'` period date; must be valid pandas offset string
+# Params for cleaning                 
+                drop_missing_index_vals: bool=True, # What to do with missing `panel_ids` or `f'{freq}date'`
+                panel_ids_toint: str='Int64', # Converts `panel_ids` to int in place; use falsy value if not wanted
+                drop_index_duplicates: bool=True, # What to do with duplicates in (`panel_ids`, `f'{freq}date'`) values
+                duplicates_which_keep: str='last', # If duplicates in index, which to keep; must be 'first', 'last' or `False`
                 ) -> pd.DataFrame:
-    """Sets index of <df> as entity_var x time_var. 
-        By default, if duplicates in this pair, only latest date obs is kept.
-        By default, observations with missing values in entity_var or time_var are deleted."""
+    """Applies `process_dates` to `df`; cleans up (`panel_ids` ,`f'{freq}date'`) and sets it as index."""
 
-    df = process_dates(df, time_var=time_var, time_var_format=time_var_format, freq=freq, dtdate_var=dtdate_var)
-    if drop_index_missing:
-        df = df.dropna(subset=[entity_var,time_var])
-    if entity_var_toint:
-        df[entity_var] = df[entity_var].astype(int)
-    df = df.set_index([entity_var, f'{freq}date']).sort_index()
+    df = process_dates(df, time_var=time_var, time_var_format=time_var_format, dtdate_var=dtdate_var, freq=freq)
+    if drop_missing_index_vals:
+        df = df.dropna(subset=[panel_ids,time_var])
+    if panel_ids_toint:
+        df[panel_ids] = df[panel_ids].astype('Int64')
+    df = df.set_index([panel_ids, f'{freq}date']).sort_index()
     if drop_index_duplicates:
         df = df[~df.index.duplicated(keep=duplicates_which_keep)]   
     return order_columns(df,[time_var,dtdate_var]) 
 
-# %% ../nbs/00_core.ipynb 17
+# %% ../nbs/00_core.ipynb 16
 def fast_lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be period date
         n: int=1, # Number of periods to lag based on frequency of df.index; Negative values means lead.
         ) -> pd.Series: # Series with lagged values; Name is taken from `df`, with _lag{n} or _lead{n} added
@@ -89,7 +90,7 @@ def fast_lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must
             raise ValueError('Index must be period date')
     return dfl[new_varname].squeeze()
 
-# %% ../nbs/00_core.ipynb 18
+# %% ../nbs/00_core.ipynb 17
 def lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be period date with no missing values.
         n: int=1, # Number of periods to lag based on frequency of df.index; Negative values means lead.
         fast: bool=True, # Assumes data is sorted by date and no duplicate or missing dates
@@ -117,7 +118,7 @@ def lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be p
     dfl = df.join(dfl).drop(columns=df.columns)
     return dfl.squeeze()
 
-# %% ../nbs/00_core.ipynb 22
+# %% ../nbs/00_core.ipynb 21
 def add_lags(df: pd.Series|pd.DataFrame, # If series, it must have a name equal to 'vars' parameter
              vars: str|List[str], # Variables to be lagged; must be a subset of df.columns()
              lags: int|List[int]=1, # Which lags to be added
@@ -138,12 +139,12 @@ def add_lags(df: pd.Series|pd.DataFrame, # If series, it must have a name equal 
             df[f'{var}{suffix}'] = lag(df[var], n, fast)
     return df
 
-# %% ../nbs/00_core.ipynb 29
+# %% ../nbs/00_core.ipynb 28
 def rpct_change(df: pd.Series, n: int=1, fast=True):
     """Percentage change using robust lag function"""
     return df / lag(df, n, fast) - 1
 
-# %% ../nbs/00_core.ipynb 31
+# %% ../nbs/00_core.ipynb 30
 def rdiff(df: pd.Series, n: int=1, fast=True):
     """Difference using robust lag function"""
     return df - lag(df, n, fast)
