@@ -2,12 +2,13 @@
 
 # %% ../nbs/00_core.ipynb 4
 from __future__ import annotations
-from typing import List 
+from typing import List, Callable 
 import pandas as pd
 import numpy as np
 
 # %% auto 0
-__all__ = ['order_columns', 'process_dates', 'setup_panel', 'fast_lag', 'lag', 'add_lags', 'rpct_change', 'rdiff']
+__all__ = ['order_columns', 'process_dates', 'setup_tseries', 'setup_panel', 'fast_lag', 'lag', 'add_lags', 'rpct_change',
+           'rdiff', 'rrolling', 'wins', 'norm']
 
 # %% ../nbs/00_core.ipynb 8
 def order_columns(df: pd.DataFrame, these_first: List[str]) -> pd.DataFrame:
@@ -30,6 +31,31 @@ def process_dates(df: pd.DataFrame, # Function returns copy of this df with `dtd
     return order_columns(df, [time_var,dtdate_var,f'{freq}date'])
 
 # %% ../nbs/00_core.ipynb 12
+def setup_tseries(df: pd.Series|pd.DataFrame, # Input DataFrame; a copy is returned
+# Params passed to `process_dates`
+                time_var: str='date', # This will be the date variable used to generate datetime var `dtdate_var`
+                time_var_format: str='%Y-%m-%d', # Format of `time_var`; must be valid pandas `strftime`
+                dtdate_var: str='dtdate', # Name of datetime var to be created from `time_var`
+                freq: str=None, # Used to create `f'{freq}date'` period date; must be valid pandas offset string
+# Params for cleaning dates                
+                drop_missing_index_vals: bool=True, # What to do with missing `f'{freq}date'`
+                drop_index_duplicates: bool=True, # What to do with duplicates in `f'{freq}date'` values
+                duplicates_which_keep: str='last', # If duplicates in index, which to keep; must be 'first', 'last' or `False`
+                ) -> pd.DataFrame:
+    """Applies `process_dates` to `df`; cleans up resulting `f'{freq}date'` period date and sets it as index."""
+
+    if isinstance(df, pd.Series): df = df.to_frame()
+    df = process_dates(df, time_var=time_var, time_var_format=time_var_format, dtdate_var=dtdate_var, freq=freq)
+
+    if drop_missing_index_vals:
+        df = df.dropna(subset=[time_var])
+    df = df.sort_values([dtdate_var])
+    if drop_index_duplicates:
+        df = df.drop_duplicates(subset=[f'{freq}date'], keep=duplicates_which_keep)
+    df = df.set_index([f'{freq}date']) 
+    return order_columns(df,[time_var,dtdate_var]) 
+
+# %% ../nbs/00_core.ipynb 15
 def setup_panel(df: pd.DataFrame, # Input DataFrame; a copy is returned
                 panel_ids :str=None, # Name of variable that identifies panel entities
 # Params passed to `process_dates`
@@ -37,7 +63,7 @@ def setup_panel(df: pd.DataFrame, # Input DataFrame; a copy is returned
                 time_var_format: str='%Y-%m-%d', # Format of `time_var`; must be valid pandas `strftime`
                 dtdate_var: str='dtdate', # Name of datetime var to be created from `time_var`
                 freq: str=None, # Used to create `f'{freq}date'` period date; must be valid pandas offset string
-# Params for cleaning                 
+# Params for cleaning panel_ids and dates                
                 drop_missing_index_vals: bool=True, # What to do with missing `panel_ids` or `f'{freq}date'`
                 panel_ids_toint: str='Int64', # Converts `panel_ids` to int in place; use falsy value if not wanted
                 drop_index_duplicates: bool=True, # What to do with duplicates in (`panel_ids`, `f'{freq}date'`) values
@@ -50,12 +76,13 @@ def setup_panel(df: pd.DataFrame, # Input DataFrame; a copy is returned
         df = df.dropna(subset=[panel_ids,time_var])
     if panel_ids_toint:
         df[panel_ids] = df[panel_ids].astype('Int64')
-    df = df.set_index([panel_ids, f'{freq}date']).sort_index()
+    df = df.sort_values([panel_ids, dtdate_var])
     if drop_index_duplicates:
-        df = df[~df.index.duplicated(keep=duplicates_which_keep)]   
+        df = df.drop_duplicates(subset=[panel_ids, f'{freq}date'], keep=duplicates_which_keep)
+    df = df.set_index([panel_ids, f'{freq}date'])
     return order_columns(df,[time_var,dtdate_var]) 
 
-# %% ../nbs/00_core.ipynb 16
+# %% ../nbs/00_core.ipynb 19
 def fast_lag(df: pd.Series|pd.DataFrame, # Index of `df` (or level 1 of MultiIndex) must be pandas period date.
         n: int=1, # Number of periods to lag based on frequency of df.index; Negative values means lead.
         ) -> pd.Series: # Series with lagged values of `df`; Name is taken from `df.columns[0]`, with '_lag{n}' or '_lead{n}' suffixed.
@@ -91,7 +118,7 @@ def fast_lag(df: pd.Series|pd.DataFrame, # Index of `df` (or level 1 of MultiInd
             raise ValueError('Index must be period date')
     return dfl[new_varname].squeeze()
 
-# %% ../nbs/00_core.ipynb 17
+# %% ../nbs/00_core.ipynb 20
 def lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be period date with no missing values.
         n: int=1, # Number of periods to lag based on frequency of `df.index`; Negative values means lead.
         fast: bool=True, # If True, uses `fast_lag()`, which assumes data is sorted by date and has no duplicate or missing dates
@@ -119,13 +146,13 @@ def lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be p
     dfl = df.join(dfl).drop(columns=df.columns)
     return dfl.squeeze()
 
-# %% ../nbs/00_core.ipynb 21
+# %% ../nbs/00_core.ipynb 24
 def add_lags(df: pd.Series|pd.DataFrame, # If pd.Series, it must have a name equal to `vars` param
              vars: str|List[str], # Variables to be lagged; must be a subset of `df.columns()`
              lags: int|List[int]=1, # Which lags to be added
              lag_suffix: str='_lag', # Used to create new lagged variable names
              lead_suffix: str='_lead', # Used to create new lead variable names
-             fast: bool=True, # Weather to use `fast_lag()` function when lagging
+             use_fast_lags: bool=True, # Weather to use `fast_lag()` function when lagging
              ) -> pd.DataFrame:
     """Returns a copy of `df` with all `lags` of all `vars` added to it."""
 
@@ -137,15 +164,72 @@ def add_lags(df: pd.Series|pd.DataFrame, # If pd.Series, it must have a name equ
     for var in vars:
         for n in lags:
             suffix = f'{lag_suffix}{n}' if n>=0 else f'{lead_suffix}{-n}'
-            df[f'{var}{suffix}'] = lag(df[var], n, fast)
+            df[f'{var}{suffix}'] = lag(df[var], n, use_fast_lags)
     return df
 
-# %% ../nbs/00_core.ipynb 28
-def rpct_change(df: pd.Series, n: int=1, fast=True):
+# %% ../nbs/00_core.ipynb 31
+def rpct_change(df: pd.Series, n: int=1, use_fast_lags=True):
     """Percentage change using robust `lag()` or `fast_lag()` function."""
-    return df / lag(df, n, fast) - 1
+    return df / lag(df, n, use_fast_lags) - 1
 
-# %% ../nbs/00_core.ipynb 30
-def rdiff(df: pd.Series, n: int=1, fast=True):
+# %% ../nbs/00_core.ipynb 33
+def rdiff(df: pd.Series, n: int=1, use_fast_lags=True):
     """Difference using robust `lag()` or `fast_lag()` function."""
-    return df - lag(df, n, fast)
+    return df - lag(df, n, use_fast_lags)
+
+# %% ../nbs/00_core.ipynb 35
+def rrolling(df: pd.Series|pd.DataFrame, # Must have period date Index (if Series) or (panel_id, period_date) Multiindex (if DataFrame) 
+                        func: str, # Name of any pandas aggregation function (to applied to `df` data within each rolling window
+                        window:int=None, # Rolling window length; if None, uses 'expanding' without fixing lags 
+                        skipna: bool|None=False, # Use None if `func` does not take `skipna` arg.
+                        use_fast_lags: bool=True
+                        ) -> pd.Series:
+    """Like `pd.DataFrame.rolling` but using robust `lag`s. Run `df = setup_tseries(df)` or `df = setup_panel(df)` prior to using."""
+
+    if isinstance(df,pd.Series): df = df.to_frame()
+    if len(df.columns) > 1: raise ValueError("`df` must have a single column")
+    varname = df.columns[0]
+    out = df.copy()
+
+    if window:
+        out = add_lags(out, vars=varname, lags=range(window), use_fast_lags=use_fast_lags)
+
+        if skipna is None:
+            return getattr(out[[f'{varname}_lag{n}' for n in range(window)]], func)(axis=1)
+        else:
+            return getattr(out[[f'{varname}_lag{n}' for n in range(window)]], func)(axis=1, skipna=skipna)
+    else:
+        if skipna is None:
+            return getattr(df.groupby(axis=0, level=0).expanding(), func)().droplevel(0)
+        else:
+            return getattr(df.groupby(axis=0, level=0).expanding(), func)(skipna=skipna).droplevel(0)
+
+
+# %% ../nbs/00_core.ipynb 42
+def wins(df: pd.Series|pd.DataFrame, 
+         low = 0.01, # Lower quantile at which to winsorize
+         high = 0.99, # Upper quantile at which to winsorize
+         byvars: List[str]=None # If None, quantiles use full sample, o/w they are calculate within each group given by `byvars`
+         ) -> pd.DataFrame:
+    """Winsorizes all columns in `df`."""
+
+    if isinstance(df,pd.Series): df = df.to_frame()
+    if byvars:
+        return (df.groupby(byvars)
+                    .apply(lambda x: df[x].clip(df[x].quantile(low), df[x].quantile(high), axis=1))
+                    .reset_index()
+                    .set_index(df.index))
+    else:
+        return df.clip(df.quantile(low), df.quantile(high), axis=1).squeeze()
+
+# %% ../nbs/00_core.ipynb 44
+def norm(df: pd.Series|pd.DataFrame, 
+         divide_by_mean = False
+         ) -> pd.DataFrame:
+    """Subtract means from all columns of `df` and divide by their std. deviations, unless `divide_by_mean` is True"""
+
+    if isinstance(df,pd.Series): df = df.to_frame()
+    if divide_by_mean:
+        return (df.copy() - df.mean()) / df.mean()
+    else:
+        return (df.copy() - df.mean()) / df.std()

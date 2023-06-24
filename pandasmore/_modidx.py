@@ -8,8 +8,12 @@ d = { 'settings': { 'branch': 'main',
   'syms': { 'pandasmore.core': { 'pandasmore.core.add_lags': ('core.html#add_lags', 'pandasmore/core.py'),
                                  'pandasmore.core.fast_lag': ('core.html#fast_lag', 'pandasmore/core.py'),
                                  'pandasmore.core.lag': ('core.html#lag', 'pandasmore/core.py'),
+                                 'pandasmore.core.norm': ('core.html#norm', 'pandasmore/core.py'),
                                  'pandasmore.core.order_columns': ('core.html#order_columns', 'pandasmore/core.py'),
                                  'pandasmore.core.process_dates': ('core.html#process_dates', 'pandasmore/core.py'),
                                  'pandasmore.core.rdiff': ('core.html#rdiff', 'pandasmore/core.py'),
                                  'pandasmore.core.rpct_change': ('core.html#rpct_change', 'pandasmore/core.py'),
-                                 'pandasmore.core.setup_panel': ('core.html#setup_panel', 'pandasmore/core.py')}}}
+                                 'pandasmore.core.rrolling': ('core.html#rrolling', 'pandasmore/core.py'),
+                                 'pandasmore.core.setup_panel': ('core.html#setup_panel', 'pandasmore/core.py'),
+                                 'pandasmore.core.setup_tseries': ('core.html#setup_tseries', 'pandasmore/core.py'),
+                                 'pandasmore.core.wins': ('core.html#wins', 'pandasmore/core.py')}}}
