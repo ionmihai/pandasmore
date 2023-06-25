@@ -13,6 +13,7 @@ __all__ = ['order_columns', 'process_dates', 'setup_tseries', 'setup_panel', 'fa
 # %% ../nbs/00_core.ipynb 8
 def order_columns(df: pd.DataFrame, these_first: List[str]) -> pd.DataFrame:
     """Returns `df` with reordered columns. Use as `df = order_columns(df,_)`"""
+    
     remaining = [x for x in df.columns if x not in these_first]
     return df[these_first + remaining]
 
@@ -222,7 +223,7 @@ def wins(df: pd.Series|pd.DataFrame,
     else:
         return df.clip(df.quantile(low), df.quantile(high), axis=1).squeeze()
 
-# %% ../nbs/00_core.ipynb 44
+# %% ../nbs/00_core.ipynb 43
 def norm(df: pd.Series|pd.DataFrame, 
          divide_by_mean = False
          ) -> pd.DataFrame:
