@@ -16,4 +16,5 @@ d = { 'settings': { 'branch': 'main',
                                  'pandasmore.core.rrolling': ('core.html#rrolling', 'pandasmore/core.py'),
                                  'pandasmore.core.setup_panel': ('core.html#setup_panel', 'pandasmore/core.py'),
                                  'pandasmore.core.setup_tseries': ('core.html#setup_tseries', 'pandasmore/core.py'),
+                                 'pandasmore.core.to_stata': ('core.html#to_stata', 'pandasmore/core.py'),
                                  'pandasmore.core.wins': ('core.html#wins', 'pandasmore/core.py')}}}

@@ -8,7 +8,7 @@ import numpy as np
 
 # %% auto 0
 __all__ = ['order_columns', 'process_dates', 'setup_tseries', 'setup_panel', 'fast_lag', 'lag', 'add_lags', 'rpct_change',
-           'rdiff', 'rrolling', 'wins', 'norm']
+           'rdiff', 'rrolling', 'wins', 'norm', 'to_stata']
 
 # %% ../nbs/00_core.ipynb 8
 def order_columns(df: pd.DataFrame, these_first: List[str]) -> pd.DataFrame:
@@ -180,12 +180,13 @@ def rdiff(df: pd.Series, n: int=1, use_fast_lags=True):
 
 # %% ../nbs/00_core.ipynb 35
 def rrolling(df: pd.Series|pd.DataFrame, # Must have period date Index (if Series) or (panel_id, period_date) Multiindex (if DataFrame) 
-                        func: str, # Name of any pandas aggregation function (to applied to `df` data within each rolling window
-                        window:int=None, # Rolling window length; if None, uses 'expanding' without fixing lags 
-                        skipna: bool|None=False, # Use None if `func` does not take `skipna` arg.
-                        use_fast_lags: bool=True
-                        ) -> pd.Series:
-    """Like `pd.DataFrame.rolling` but using robust `lag`s. Run `df = setup_tseries(df)` or `df = setup_panel(df)` prior to using."""
+            func: str, # Name of any pandas aggregation function (to applied to `df` data within each rolling window
+            window:int=None, # Rolling window length; if None, uses 'expanding' without fixing lags 
+            skipna: bool|None=False, # Use None if `func` does not take `skipna` arg.
+            use_fast_lags: bool=True
+            ) -> pd.Series:
+    """Like `pd.DataFrame.rolling` but using robust `lag`s. 
+    Run `df = setup_tseries(df)` or `df = setup_panel(df)` prior to using."""
 
     if isinstance(df,pd.Series): df = df.to_frame()
     if len(df.columns) > 1: raise ValueError("`df` must have a single column")
@@ -234,3 +235,34 @@ def norm(df: pd.Series|pd.DataFrame,
         return (df.copy() - df.mean()) / df.mean()
     else:
         return (df.copy() - df.mean()) / df.std()
+
+# %% ../nbs/00_core.ipynb 45
+def to_stata(df: pd.DataFrame=None,
+             outfile: str=None, # Output file path; must include .dta extension
+             obj_drop: bool=False, # Whether to drop all columns of `object` type
+             obj_to_str: bool=False, # Whether to convert all columns of `object` type to `string` type
+             **to_stata_kwargs # Other kwargs to pass to `pd.to_stata`
+             ):
+    """Writes `df` to stata `outfile` """
+
+    if df.index.equals(pd.RangeIndex(start=0, stop=len(df), step=1)): df = df.copy()
+    else: df = df.reset_index().copy()
+
+    #Deal with `object` and `string` data types
+    for v in list(df.columns):
+        if df[v].dtype=='string': df[v] = df[v].fillna('').astype(str)
+        if df[v].dtype=='object':
+            if obj_drop: df = df.drop(v, axis=1)
+            elif obj_to_str and df[v].dropna().apply(lambda x: isinstance(x, str)).all():
+                df[v] = df[v].fillna('').astype(str)
+
+    #Deal with time data
+    dates_to_td = {}
+    for v in list(df.columns):
+        if str(df[v].dtype).startswith('period'): df = df.drop(v, axis=1)
+        elif df[v].dtype=='datetime64[ns]':
+            if df[v].apply(lambda x: x.tz is not None).any(): df = df.drop(v, axis=1)
+            else: dates_to_td[v] = 'td'
+        pass
+    
+    df.to_stata(outfile, convert_dates=dates_to_td, write_index=False, **to_stata_kwargs)   
