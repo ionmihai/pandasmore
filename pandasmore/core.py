@@ -35,6 +35,7 @@ def process_dates(df: pd.DataFrame, # Function returns copy of this df with `dtd
 # %% ../nbs/00_core.ipynb 12
 def setup_tseries(df: pd.Series|pd.DataFrame, # Input DataFrame; a copy is returned
 # Params passed to `process_dates`
+                dates_processed: bool=False, # If True, assumes dates are already processed with `process_dates`
                 time_var: str='date', # This will be the date variable used to generate datetime var `dtdate_var`
                 time_var_format: str='%Y-%m-%d', # Format of `time_var`; must be valid pandas `strftime`
                 dtdate_var: str='dtdate', # Name of datetime var to be created from `time_var`
@@ -47,7 +48,8 @@ def setup_tseries(df: pd.Series|pd.DataFrame, # Input DataFrame; a copy is retur
     """Applies `process_dates` to `df`; cleans up resulting `f'{freq}date'` period date and sets it as index."""
 
     if isinstance(df, pd.Series): df = df.to_frame()
-    df = process_dates(df, time_var=time_var, time_var_format=time_var_format, dtdate_var=dtdate_var, freq=freq)
+    if not dates_processed:
+        df = process_dates(df, time_var=time_var, time_var_format=time_var_format, dtdate_var=dtdate_var, freq=freq)
 
     if drop_missing_index_vals:
         df = df.dropna(subset=[time_var])
@@ -61,6 +63,7 @@ def setup_tseries(df: pd.Series|pd.DataFrame, # Input DataFrame; a copy is retur
 def setup_panel(df: pd.DataFrame, # Input DataFrame; a copy is returned
                 panel_ids :str=None, # Name of variable that identifies panel entities
 # Params passed to `process_dates`
+                dates_processed: bool=False, # If True, assumes dates are already processed with `process_dates`
                 time_var: str='date', # This will be the date variable used to generate datetime var `dtdate_var`
                 time_var_format: str='%Y-%m-%d', # Format of `time_var`; must be valid pandas `strftime`
                 dtdate_var: str='dtdate', # Name of datetime var to be created from `time_var`
@@ -73,7 +76,8 @@ def setup_panel(df: pd.DataFrame, # Input DataFrame; a copy is returned
                 ) -> pd.DataFrame:
     """Applies `process_dates` to `df`; cleans up (`panel_ids` ,`f'{freq}date'`) and sets it as index."""
 
-    df = process_dates(df, time_var=time_var, time_var_format=time_var_format, dtdate_var=dtdate_var, freq=freq)
+    if not dates_processed:
+        df = process_dates(df, time_var=time_var, time_var_format=time_var_format, dtdate_var=dtdate_var, freq=freq)
     if drop_missing_index_vals:
         df = df.dropna(subset=[panel_ids,time_var])
     if panel_ids_toint:
