@@ -93,7 +93,7 @@ def fast_lag(df: pd.Series|pd.DataFrame, # Index of `df` (or level 1 of MultiInd
         n: int=1, # Number of periods to lag based on frequency of df.index; Negative values means lead.
         ) -> pd.Series: # Series with lagged values of `df`; Name is taken from `df.columns[0]`, with '_lag{n}' or '_lead{n}' suffixed.
     """Lag data in `df` by `n` periods. 
-    ASSUMES DATA IS SORTED BY DATES AND HAS NO DUPLICATE OR MISSING DATES.
+    ASSUMES DATA IS SORTED BY DATES AND HAS NO DUPLICATE OR NaN DATES, AND NO GAPS IN THE TIME SERIES.
     Apply `df = setup_panel(df)` before using."""
 
     if isinstance(df,pd.Series): df = df.to_frame()
@@ -127,9 +127,9 @@ def fast_lag(df: pd.Series|pd.DataFrame, # Index of `df` (or level 1 of MultiInd
 # %% ../nbs/00_core.ipynb 20
 def lag(df: pd.Series|pd.DataFrame, # Index (or level 1 of MultiIndex) must be period date with no missing values.
         n: int=1, # Number of periods to lag based on frequency of `df.index`; Negative values means lead.
-        fast: bool=True, # If True, uses `fast_lag()`, which assumes data is sorted by date and has no duplicate or missing dates
+        fast: bool=False, # If True, uses `fast_lag()`, which assumes data is sorted by date and has no duplicate or missing dates
         ) -> pd.Series: # Series with lagged values of `df`; Name is taken from `df.columns[0]`, with '_lag{n}' or '_lead{n}' suffixed.
-    """Lag data in 'df' by 'n' periods. ASSUMES NO MISSING DATES. Apply `df = setup_panel(df)` before using."""
+    """Lag data in 'df' by 'n' periods. ASSUMES NO NaN DATES. Apply `df = setup_panel(df)` before using."""
 
     if fast: return fast_lag(df,n)
 
@@ -158,7 +158,7 @@ def add_lags(df: pd.Series|pd.DataFrame, # If pd.Series, it must have a name equ
              lags: int|List[int]=1, # Which lags to be added
              lag_suffix: str='_lag', # Used to create new lagged variable names
              lead_suffix: str='_lead', # Used to create new lead variable names
-             use_fast_lags: bool=True, # Weather to use `fast_lag()` function when lagging
+             use_fast_lags: bool=False, # Weather to use `fast_lag()` function when lagging
              ) -> pd.DataFrame:
     """Returns a copy of `df` with all `lags` of all `vars` added to it."""
 
@@ -174,12 +174,12 @@ def add_lags(df: pd.Series|pd.DataFrame, # If pd.Series, it must have a name equ
     return df
 
 # %% ../nbs/00_core.ipynb 31
-def rpct_change(df: pd.Series, n: int=1, use_fast_lags=True):
+def rpct_change(df: pd.Series, n: int=1, use_fast_lags=False):
     """Percentage change using robust `lag()` or `fast_lag()` function."""
     return df / lag(df, n, use_fast_lags) - 1
 
 # %% ../nbs/00_core.ipynb 33
-def rdiff(df: pd.Series, n: int=1, use_fast_lags=True):
+def rdiff(df: pd.Series, n: int=1, use_fast_lags=False):
     """Difference using robust `lag()` or `fast_lag()` function."""
     return df - lag(df, n, use_fast_lags)
 
@@ -188,7 +188,7 @@ def rrolling(df: pd.Series|pd.DataFrame, # Must have period date Index (if Serie
             func: str, # Name of any pandas aggregation function (to applied to `df` data within each rolling window
             window:int=None, # Rolling window length; if None, uses 'expanding' without fixing lags 
             skipna: bool|None=False, # Use None if `func` does not take `skipna` arg.
-            use_fast_lags: bool=True
+            use_fast_lags: bool=False
             ) -> pd.Series:
     """Like `pd.DataFrame.rolling` but using robust `lag`s. 
     Run `df = setup_tseries(df)` or `df = setup_panel(df)` prior to using."""
