@@ -9,7 +9,7 @@ import numpy as np
 
 # %% auto 0
 __all__ = ['order_columns', 'process_dates', 'setup_tseries', 'setup_panel', 'fast_lag', 'lag', 'add_lags', 'rpct_change',
-           'rdiff', 'rrolling', 'wins', 'norm', 'to_stata']
+           'rdiff', 'rrolling', 'wins', 'norm', 'to_stata', 'bins_using_masked_cutoffs']
 
 # %% ../nbs/00_core.ipynb 8
 def order_columns(df: pd.DataFrame, these_first: List[str]) -> pd.DataFrame:
@@ -271,3 +271,35 @@ def to_stata(df: pd.DataFrame=None,
         pass
     
     df.to_stata(outfile, convert_dates=dates_to_td, write_index=False, **to_stata_kwargs)   
+
+# %% ../nbs/00_core.ipynb 51
+def bins_using_masked_cutoffs(df: pd.DataFrame=None, #Dataframe containing `sortvar` and `maskvar`. Must have panelvar x datevar multiindex 
+                       sortvar:str=None, #Variable containing the values to be binned
+                       maskvar: str=None, #Mask to be applied to `df[sortvar]` before bin cutoffs are calculated
+                       quantiles: list=None, #List of quantiles to be applied to df.loc[df[maskvar], sortvar] to determine bin cutoffs 
+                       outvar:str=None #Name to give to the column of bins created. If none, will use f"{sortvar}_bins"
+) ->pd.DataFrame:
+    """Returns column of bin numbers (1 to len(`quantiles`)) created by binning `sortvar` based on cuttoffs give by `quantiles` of `df.loc[df[maskvar], sortvar]`"""
+
+    if outvar is None: outvar = f"{sortvar}_bins"
+
+    (panelvar, datevar) = df.index.names
+    df = df.reset_index()[[sortvar, maskvar, datevar, panelvar]].copy()
+
+    # Get cutoffs every time period
+    cutoffs = (df.loc[df[maskvar]]
+                .groupby(datevar)[sortvar]
+                .quantile(quantiles).to_frame().unstack() )              
+
+    #Clean up cutoff dataset
+    cnames = [sortvar + "_" + str(x) for x in quantiles]
+    cutoffs.columns = cnames
+    cutoffs = cutoffs.reset_index()    
+    df = df.merge(cutoffs, how = "left", on = datevar)
+
+    df[outvar] = np.nan #code for missing sortvar
+    df.loc[(df[sortvar] < df[cnames[0]]) & df[sortvar].notna(), outvar] = 1 #first bin
+    for c in range(1,len(cnames)+1):
+        df.loc[(df[sortvar] >= df[cnames[c-1]]) & df[sortvar].notna(), outvar] = c + 1
+        
+    return df.set_index([panelvar,datevar])[[outvar]].copy()
