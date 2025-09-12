@@ -81,7 +81,7 @@ def setup_panel(df: pd.DataFrame, # Input DataFrame; a copy is returned
     if drop_missing_index_vals:
         df = df.dropna(subset=[panel_ids,time_var])
     if panel_ids_toint:
-        df[panel_ids] = df[panel_ids].astype('Int64')
+        df[panel_ids] = df[panel_ids].astype(panel_ids_toint)
     df = df.sort_values([panel_ids, dtdate_var])
     if drop_index_duplicates:
         df = df.drop_duplicates(subset=[panel_ids, f'{freq}date'], keep=duplicates_which_keep)
